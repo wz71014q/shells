@@ -4,16 +4,23 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "start": "node getXliffCount",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "inquirer": "^8.2.4",
     "koa": "^2.13.4",
     "koa-serve-index": "^1.1.1",
-    "koa-static": "^5.0.0"
+    "koa-static": "^5.0.0",
+    "xml2js": "^0.4.23"
   },
   "dependencies": {
-    "inquirer": "^8.2.4"
+    "chalk": "^4.1.2",
+    "commander": "^9.4.0",
+    "syslog-client": "^1.1.1",
+    "syslog-server": "^1.0.1",
+    "xml-js": "^1.6.11"
   }
 }

@@ -1,0 +1,23 @@
+#!/usr/bin/env node
+
+const chalk = require('chalk');
+const util = require('util');
+const { exec } = require('child_process');
+const execPromise = util.promisify(exec);
+
+const commander = async (cmd) => {
+  const { stdout } = await execPromise(cmd);
+  return stdout;
+}
+const GIT_COMMIT_M = 'git commit -m';
+
+async function init() {
+  const messages = process.argv.filter((item, index) => index > 1).join(' ');
+  try {
+    const checkoutStdout = await commander(`${GIT_COMMIT_M} "${messages}"`);
+    console.log(chalk.green(checkoutStdout));
+  } catch (e) {
+    console.log(chalk.red(e.stderr));
+  }
+}
+init();

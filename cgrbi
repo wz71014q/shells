@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+git_rebase_i_head="git rebase -i HEAD~"
+
+echo "请输入要修改提交的次数"
+read input
+$git_rebase_i_head~$input

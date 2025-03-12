@@ -6,7 +6,7 @@ const serveIndex = require('koa-serve-index');
 const os = require('os');
 
 const app = new Koa();
-const dir = '/Users/wangzhiqiang/work/UI';
+const dir = 'dir';
 function getIPAddress() {
   var ifaces = os.networkInterfaces();
   var ip = '';

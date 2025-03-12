@@ -11,7 +11,6 @@ const commander = async (cmd) => {
   return stdout;
 }
 const GIT_BRANCH = 'git branch';
-const GIT_CHECKOUT = 'git checkout ';
 const GIT_DELETE = 'git branch -D ';
 
 async function init() {
@@ -30,7 +29,7 @@ async function init() {
     {
       name: 'action',
       type: 'list',
-      message: '请选择分支',
+      message: '请选择要删除的分支',
       choices: branch
     }
   ])

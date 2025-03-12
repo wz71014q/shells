@@ -11,7 +11,7 @@ const commander = async (cmd) => {
   return stdout;
 }
 const GIT_BRANCH = 'git branch';
-const GIT_CHECKOUT = 'git checkout ';
+const GIT_CHECKOUT = 'git checkout';
 
 async function init() {
   const branchStdout = await commander(GIT_BRANCH);
@@ -29,7 +29,7 @@ async function init() {
     {
       name: 'action',
       type: 'list',
-      message: '请选择分支',
+      message: '请选择要切换的分支',
       choices: branch
     }
   ])

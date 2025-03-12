@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+
+git-filter-repo.py --email-callback 'return email.replace(b"oldEmail", b"newEmail")' --force  --refs master~18..master

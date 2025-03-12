@@ -1,0 +1,6 @@
+$input
+$($input)
+${input}
+${input}
+1231231
+8888888 soc.service.com

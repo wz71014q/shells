@@ -1,0 +1,204 @@
+#!/usr/bin/env node
+
+const path = require('path');
+const fs = require('fs');
+const util = require('util');
+const { parseString } = require('xml2js');
+
+const parseStringPromise = util.promisify(parseString);
+
+const rootDir = path.resolve(__dirname, './assets/ngsoc-i18n');
+const wrongWordSavePath = path.resolve(__dirname, './result/i18n/wrongWord.json');
+const sameChinesePath = path.resolve(__dirname, './result/i18n/sameChinese.json');
+const standardWordPath = path.resolve(__dirname, './assets/json/word.json');
+const sameIdPath = path.resolve(__dirname, './assets/json/sameId.json');
+
+const macFileFlag = ['.DS_Store'];
+
+const fielsArray = [];
+
+const wrongWordMap = {
+  '统计名称': '根据给定的翻译，对比词语翻译是否正确(忽略大小写)',
+  '总数量': -2 // wrongWordMap 初始时有两个key
+};
+const sameChineseMap = {
+  '统计名称': '中文一样，但是英文不一样的',
+  '总数量': -2
+};
+const sameIdMap = {
+  '统计名称': 'ID一样，但是英文翻译不一样的',
+  '总数量': -2
+};
+
+function validateExt(dir, ext) {
+  return path.extname(dir) === ext;
+}
+
+function getAllFiles(dir) {
+  if (!dir) return;
+  const fsStats = fs.statSync(dir);
+  if (fsStats.isFile() && validateExt(dir, '.xlf')) {
+    fielsArray.push(dir);
+    return;
+  };
+  if (fsStats.isDirectory()) {
+    const files = fs.readdirSync(dir).filter(item => !macFileFlag.includes(item));
+    files.forEach(file => {
+      const filePath = path.resolve(dir, file);
+      getAllFiles(filePath);
+    })
+  }
+}
+
+function getTransGroup(obj) {
+  if (!obj) return;
+  const tag = Object.keys(obj).filter(item => item !== '$')[0];
+  if (!tag) return;
+  if (tag === 'trans-unit') return obj[tag];
+  if (typeof obj[tag] === 'object') return getTransGroup(obj[tag]);
+}
+
+async function readXmlFiles(filePath, standardWordMap, standardWords) {
+  const file = fs.readFileSync(filePath, 'utf8');
+  const fileObj = await parseStringPromise(file);
+  const transUnitArray = getTransGroup(fileObj.xliff);
+  transUnitArray && transUnitArray.forEach(unit => {
+    sameIdStatistics(unit, filePath);
+    sameChineseStatistics(unit, filePath);
+    diffStatistics(unit, standardWordMap, standardWords, filePath);
+  })
+}
+
+// 获取被标签包裹的整个句子
+function getSentence(obj, sentence = '') {
+  let result = '';
+  if (typeof obj === 'string') {
+    result = obj;
+  }
+  if (typeof obj === 'object') {
+    result = obj._;
+  }
+  // return result.replace(/\n*\s{2,}/g, '');
+  return result;
+}
+
+// 统计中文包含给定词语，但是英文不包含的
+function diffStatistics(unit, standardWordMap, standardWords, filePath) {
+  let currentHans = '';
+  let currentTarget = '';
+  let standardTarget = '';
+  if (unit['source']) {
+    currentHans = getSentence(unit['source'][0]);
+  }
+  if (unit['target']) {
+    currentTarget = unit['target'][0]._;
+  }
+  standardWords.forEach(item => {
+    if (currentHans.indexOf(item) > -1 && item.length !== 1) {
+      standardTarget = standardWordMap[item]['英文'];
+      const isContain = standardTarget.every(word => currentTarget.toLowerCase().indexOf(word.toLowerCase()) === -1)
+      if (isContain) {
+        if (!wrongWordMap[item]) {
+          wrongWordMap[item] = [];
+        }
+        wrongWordMap[item].push({
+          id: unit.$.id,
+          '包含关键词': item,
+          '关键词标准翻译': standardTarget,
+          '原文': currentHans,
+          '错误翻译原文': currentTarget,
+          '来源文件': filePath.split('i18n')[1],
+        });
+      }
+    }
+  })
+}
+// 统计中文一致，但是英文翻译不一样的
+function sameChineseStatistics(unit, filePath) {
+  let currentHans = '';
+  let currentTarget = '';
+  if (unit['source']) {
+    currentHans = getSentence(unit['source'][0]);
+  }
+  if (unit['target']) {
+    currentTarget = unit['target'][0]._;
+  }
+  if (!sameChineseMap[currentHans]) {
+    sameChineseMap[currentHans] = []
+    sameChineseMap[currentHans].push({
+      id: unit.$.id,
+      '原文': currentHans,
+      '翻译原文': currentTarget,
+      '来源文件': filePath.split('i18n')[1],
+    });
+  }
+  if (sameChineseMap[currentHans].every(item => item['翻译原文'] !== currentTarget)) {
+    sameChineseMap[currentHans].push({
+      id: unit.$.id,
+      '原文': currentHans,
+      '翻译原文': currentTarget,
+      '来源文件': filePath.split('i18n')[1],
+    });
+  }
+}
+// 统计ID一致，但是翻译不一致的
+function sameIdStatistics(unit, filePath) {
+  let currentId;
+  let currentHans = '';
+  let currentTarget = '';
+  if (unit['source']) {
+    currentHans = getSentence(unit['source'][0]);
+    currentId = unit.$.id;
+  }
+  if (unit['target']) {
+    currentTarget = unit['target'][0]._;
+  }
+  if (!sameIdMap[currentId]) {
+    sameIdMap[currentId] = []
+    sameIdMap[currentId].push({
+      id: unit.$.id,
+      '原文': currentHans,
+      '翻译': currentTarget,
+      '来源文件': filePath.split('i18n')[1],
+    });
+  }
+  if (sameIdMap[currentId].every(item => item['翻译'] !== currentTarget)) {
+    sameIdMap[currentId].push({
+      id: unit.$.id,
+      '原文': currentHans,
+      '翻译': currentTarget,
+      '来源文件': filePath.split('i18n')[1],
+    });
+  }
+}
+// 保存文件
+function saveFile(filePath, content) {
+  const str = `${JSON.stringify(content)}`;
+  fs.writeFileSync(filePath, str);
+}
+
+// 统计总数量
+function getALLNumber(mapName) {
+  // 清除只有一个元素的词语
+  for (let key in mapName) {
+    mapName['总数量'] += 1;
+    if (mapName[key].length === 1) {
+      delete mapName[key];
+      mapName['总数量'] -= 1;
+    }
+  }
+}
+
+async function main(rootDir) {
+  getAllFiles(rootDir);
+  const standardWord = JSON.parse(fs.readFileSync(standardWordPath, 'utf8'));
+  const standardWords = Object.keys(standardWord);
+  await Promise.all(fielsArray.map(item => readXmlFiles(item, standardWord, standardWords)));
+  // getALLNumber(sameChineseMap);
+  // getALLNumber(wrongWordMap);
+  getALLNumber(sameIdMap);
+  // saveFile(wrongWordSavePath, wrongWordMap);
+  // saveFile(sameChinesePath, sameChineseMap);
+  saveFile(sameIdPath, sameIdMap);
+}
+main(rootDir);
